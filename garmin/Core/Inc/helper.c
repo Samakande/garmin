@@ -56,7 +56,8 @@ void readByte(float * start, int sampling_rate, int baudrate)
 
 		(average > 1.6) ? (frame = frame || 1 << i ) : (frame = frame || 0 << i);
 
-		//print character to console
+		//print character to console h
+
 	}
 
 }
