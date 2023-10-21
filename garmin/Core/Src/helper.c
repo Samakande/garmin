@@ -42,23 +42,28 @@ void readByte(float * start, int sampling_rate, int baudrate)
 	float sum;
 	float average;
 	char frame = 0x00;
+	float rounding_error = sampling_rate%baudrate;
+	int sequence = 0b011;
 
 	for(int i=0; i<8; i++)
 	{
 
-		for(int j=0; j<bufferSize; j++)
+		for(int j=0; j<=bufferSize; j++)
 		{
 			sum += *start++;
 		}
+
+		//account for the rounding errors
+		start += (int)rounding_error;
+		rounding_error += 0.6805;
 
 
 		average = sum/bufferSize;
 
 		(average > 1.6) ? (frame = frame || 1 << i ) : (frame = frame || 0 << i);
 
-		//print character to console h
-
 	}
+	//print character to console h
 
 }
 
