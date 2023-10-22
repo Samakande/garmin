@@ -21,7 +21,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include<string.h>
+#include "helper.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -66,6 +67,7 @@ static void MX_USART2_UART_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 
   /* USER CODE END 1 */
 
@@ -75,6 +77,13 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
+  float uart_samples [] = UART_NOISY_SAMPLES;
+  int arraySize = sizeof(uart_samples) / sizeof(float);
+  float *psamples = uart_samples;
+  int sampling_rate = 1000000, baudrate = 115200;
+  float * begin; //ponter to the start of the uart samples
+  begin = start(psamples, sampling_rate, baudrate, arraySize);
+  char  myChar =readByte( begin, sampling_rate, baudrate);
 
   /* USER CODE END Init */
 
@@ -89,14 +98,19 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-
+  char *user_data = "The application is running\r\n";
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+
     /* USER CODE END WHILE */
+
+	  HAL_UART_Transmit(&huart2,(uint8_t*)&myChar, 1, HAL_MAX_DELAY);
+	  HAL_GPIO_TogglePin(GPIOA, LD2_Pin);
+	  HAL_Delay(600);
 
     /* USER CODE BEGIN 3 */
   }
