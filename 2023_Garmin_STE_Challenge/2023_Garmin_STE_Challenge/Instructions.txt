@@ -1,0 +1,9 @@
+Garmin Stellenbosch has discovered an ancient electronic device from the early 2010s, which we believe is they key to finding our next amazing team member.
+
+We unfortunately bricked the device while trying to figure out what it does, but we managed to sample one signal before it died. It seems to be some kind of UART signal, though it's affected by noise, which gets worse as the signal goes on.
+
+The attached CSV contains the signal in volts, sampled at 1 MHz. We believe the baud rate of the UART was 115200.
+
+Can you decode the signal that was sent on the UART, and show us that you're the team member we've been looking for?
+
+(Please note that our e-mail system automatically removes .py files, so if you solve the challenge in Python, please rename your file to have the extension ".txt")
