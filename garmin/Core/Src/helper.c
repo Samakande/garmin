@@ -8,69 +8,130 @@
 #include "helper.h"
 #include <stddef.h>
 
-float* start(float * samples, int sampling_rate, int baudrate, int arraySize) //detects when the dataline is pulled low by the transmitting device for one period
+void start(decoding_handle * dhandle) //detects when the dataline is pulled low by the transmitting device for one period
 {
-	float period = 1/baudrate;
-	int bufferSize = sampling_rate/baudrate;
+	int bufferSize = (dhandle->sequence > 3) ? (bufferSize =9) : (bufferSize =8); //buffer size crafted to account for the sampling mismatch
+	leftRotate(&(dhandle->sequence));
 	float sum;
 	float average;
 
-	while (arraySize--) //checking incoming samples for a start condition
+	while (dhandle->arraySize--) //checking incoming samples for a start condition
 	{
-		if(*samples < 0.9) //check if the current sample is less than 0.9v and start buffering the incoming samples for 1 period
+		if(*(dhandle->samplePointer) < 0.9) //check if the current sample is less than 0.9v and start buffering the incoming samples for 1 period. This helps to ensure the low voltage is not just a voltage spike
 		{
 			for(int i=0; i<bufferSize; i++)
 			{
-				sum += *samples++;
+				if((i > 2) & (i <7))
+				{
+				sum += *(dhandle->samplePointer)++;
+				/*keep track of the remaining samples*/
+				dhandle->arraySize--;
+				}
+
+				else
+				{
+					(dhandle->samplePointer)++;
+					dhandle->arraySize--;
+				}
 			}
 
-			average = sum/bufferSize;
+			average = sum/4;
 
 			if(average < 0.9)
 			{
-				return samples; //returns a pointer to the start of the 1st bit being sampled
+				dhandle->dstatus = STARTBIT_FOUND;
+				break;
 			}
 
+
+
 		}
-		samples++;
+
+		else {(dhandle->samplePointer)++;}
 	}
 
-	return NULL;
-
+	if(dhandle->dstatus != STARTBIT_FOUND)
+	{
+		dhandle->dstatus = STARTBIT_NOTFOUND;
+	}
 }
 
-char readByte(float * start, int sampling_rate, int baudrate)
+void readByte(decoding_handle * dhandle)
 {
-	//float period = 1/baudrate;
-	//float rounding_error = sampling_rate%baudrate;
 
 	int bufferSize;	//sampling_rate/baudrate;
-	float sum;
+	float sum = 0;
 	float average;
 	char frame = 0x00;
 
-	uint8_t sequence = 0b110;
-
-	for(int i=0; i<8; i++)
+	for(int i=0; i<8; i++) //bit sampling
 	{
-
-		(sequence > 3) ? (bufferSize =9) : (bufferSize =8); //mechanism to account for the rounding errors
-		leftRotate(&sequence);
-		sum=0;
+		(dhandle->sequence  > 3) ? (bufferSize =9) : (bufferSize =8);
+		leftRotate(&(dhandle->sequence));
 
 		for(int j=0; j<bufferSize; j++)
 		{
-			sum += *start++;
+			if((j > 2) & (j <7))
+			{
+			sum += *(dhandle->samplePointer)++;
+			/*keep track of the remaining samples*/
+			dhandle->arraySize--;
+			}
+
+			else
+			{
+				(dhandle->samplePointer)++;
+				dhandle->arraySize--;
+			}
 		}
 
+		/*voting system to decide whether the sampled bit is 0/1*/
+		average = sum/4;
+		(average > 1.6) ? (frame |= (1 << (7-i))) : (frame |= (0 << (7-i))); //MSB first
 
-		average = sum/bufferSize;
-
-		(average > 1.6) ? (frame |= (1 << 7-i)) : (frame |= (0 << 7-i)); //MSB first
+		/*reset sum for the next sample buffering*/
+		sum=0;
 	}
 
-	//print character to console h
-	return frame;
+	dhandle->myChar = frame;
+	dhandle->dstatus = FRAME_SUCCESS;
+
+	//sample the stop bit : from the signal it looks like the uart is using 2 stop bits
+	for(int k=0; k<2; k++)
+	{
+		(dhandle->sequence  > 3) ? (bufferSize =9) : (bufferSize =8);
+		leftRotate(&(dhandle->sequence));
+
+		for(int j=0; j<bufferSize; j++)
+		{
+			if((j > 2) & (j <7))
+			{
+			sum += *(dhandle->samplePointer)++;
+			/*keep track of the remaining samples*/
+			dhandle->arraySize--;
+			}
+
+			else
+			{
+				(dhandle->samplePointer)++;
+				dhandle->arraySize--;
+			}
+		}
+
+		if((sum/4) > 1.6) //if high pass
+		{
+			///
+		}
+		else
+		{
+			dhandle->dstatus = STOPBITS_NOTFOUND;
+			break;
+		}
+
+	}
+
+	//check the start bit for the next byte
+	start(dhandle);
 
 }
 

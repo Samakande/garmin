@@ -44,7 +44,7 @@
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-
+decoding_handle dhandle1;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -52,12 +52,12 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
-
+static void DECODE_Init(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+float uart_samples [] = UART_FILTERED_SAMPLES;
 /* USER CODE END 0 */
 
 /**
@@ -67,7 +67,6 @@ static void MX_USART2_UART_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
 
   /* USER CODE END 1 */
 
@@ -77,13 +76,6 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-  float uart_samples [] = UART_NOISY_SAMPLES;
-  int arraySize = sizeof(uart_samples) / sizeof(float);
-  float *psamples = uart_samples;
-  int sampling_rate = 1000000, baudrate = 115200;
-  float * begin; //ponter to the start of the uart samples
-  begin = start(psamples, sampling_rate, baudrate, arraySize);
-  char  myChar =readByte( begin, sampling_rate, baudrate);
 
   /* USER CODE END Init */
 
@@ -97,18 +89,43 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
+
   /* USER CODE BEGIN 2 */
-  char *user_data = "The application is running\r\n";
+
+  /*initialize the uart signal decoding parameters*/
+  DECODE_Init();
+  start(&dhandle1);
+  char * message;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
+  while (dhandle1.dstatus == STARTBIT_FOUND)
   {
 
     /* USER CODE END WHILE */
 
-	  HAL_UART_Transmit(&huart2,(uint8_t*)&myChar, 1, HAL_MAX_DELAY);
+
+	  readByte(&dhandle1);
+	  if((dhandle1.dstatus == FRAME_SUCCESS) | (dhandle1.dstatus == STARTBIT_FOUND))
+	  {
+		  HAL_UART_Transmit(&huart2,(uint8_t *)&(dhandle1.myChar), 1, HAL_MAX_DELAY);
+	  }
+
+	  else if(dhandle1.dstatus == STOPBITS_NOTFOUND)
+	  {
+		  HAL_UART_Transmit(&huart2,(uint8_t *)&(dhandle1.myChar), 1, HAL_MAX_DELAY);
+		  message = "/n stop bit not found /n";
+		  HAL_UART_Transmit(&huart2,(uint8_t *)message, strlen(message), HAL_MAX_DELAY);
+	  }
+
+	  else if(dhandle1.dstatus == STARTBIT_NOTFOUND)
+	  {
+		  HAL_UART_Transmit(&huart2,(uint8_t *)&(dhandle1.myChar), 1, HAL_MAX_DELAY);
+		  message = "/n no more incoming samples /n";
+		  HAL_UART_Transmit(&huart2,(uint8_t *)message, strlen(message), HAL_MAX_DELAY);
+	  }
+
 	  HAL_GPIO_TogglePin(GPIOA, LD2_Pin);
 	  HAL_Delay(600);
 
@@ -231,6 +248,13 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+static void DECODE_Init(void)
+{
+	dhandle1.sequence = 0b011;
+	dhandle1.samplePointer = uart_samples;
+	dhandle1.arraySize = sizeof(uart_samples) / sizeof(float);
+}
 
 /* USER CODE END 4 */
 
